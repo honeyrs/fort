@@ -1,10 +1,10 @@
 import os
-import re 
+import re
 import sys
 import typing
-import asyncio 
-import logging 
-from database import db 
+import asyncio
+import logging
+from database import db
 from config import Config, temp
 from pyrogram import Client, filters
 from pyrogram.raw.all import layer
@@ -12,6 +12,7 @@ from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from pyrogram.errors.exceptions.bad_request_400 import AccessTokenExpired, AccessTokenInvalid
 from pyrogram.errors import FloodWait
 from translation import Translation
+import types  # Added for binding the method
 
 from typing import Union, Optional, AsyncGenerator
 
@@ -48,13 +49,14 @@ async def start_clone_bot(FwdBot, data=None):
                     yield message
                     current += 1
         
-        FwdBot.iter_messages = iter_messages
+        # Bind the iter_messages function to the FwdBot instance
+        FwdBot.iter_messages = types.MethodType(iter_messages, FwdBot)
         return FwdBot
     except Exception as e:
         logger.error(f"Error starting client: {e}")
         raise
 
-class CLIENT: 
+class CLIENT:
     def __init__(self):
         self.api_id = Config.API_ID
         self.api_hash = Config.API_HASH
@@ -126,50 +128,46 @@ class CLIENT:
         
 @Client.on_message(filters.private & filters.command('reset'))
 async def forward_tag(bot, m):
-   default = await db.get_configs("01")
-   temp.CONFIGS[m.from_user.id] = default
-   await db.update_configs(m.from_user.id, default)
-   await m.reply("successfully settings reseted ✔️")
+    default = await db.get_configs("01")
+    temp.CONFIGS[m.from_user.id] = default
+    await db.update_configs(m.from_user.id, default)
+    await m.reply("successfully settings reseted ✔️")
 
 @Client.on_message(filters.command('resetall') & filters.user(Config.BOT_OWNER_ID))
 async def resetall(bot, message):
-  users = await db.get_all_users()
-  sts = await message.reply("**processing**")
-  TEXT = "total: {}\nsuccess: {}\nfailed: {}\nexcept: {}"
-  total = success = failed = already = 0
-  ERRORS = []
-  async for user in users:
-      user_id = user['id']
-      default = await get_configs(user_id)
-      default['db_uri'] = None
-      total += 1
-      if total %10 == 0:
-         await sts.edit(TEXT.format(total, success, failed, already))
-      try: 
-         await db.update_configs(user_id, default)
-         success += 1
-      except Exception as e:
-         ERRORS.append(e)
-         failed += 1
-  if ERRORS:
-     await message.reply(ERRORS[:100])
-  await sts.edit("completed\n" + TEXT.format(total, success, failed, already))
+    users = await db.get_all_users()
+    sts = await message.reply("**processing**")
+    TEXT = "total: {}\nsuccess: {}\nfailed: {}\nexcept: {}"
+    total = success = failed = already = 0
+    ERRORS = []
+    async for user in users:
+        user_id = user['id']
+        default = await get_configs(user_id)
+        default['db_uri'] = None
+        total += 1
+        if total % 10 == 0:
+            await sts.edit(TEXT.format(total, success, failed, already))
+        try:
+            await db.update_configs(user_id, default)
+            success += 1
+        except Exception as e:
+            ERRORS.append(e)
+            failed += 1
+    if ERRORS:
+        await message.reply(ERRORS[:100])
+    await sts.edit("completed\n" + TEXT.format(total, success, failed, already))
   
 async def get_configs(user_id):
-  #configs = temp.CONFIGS.get(user_id)
-  #if not configs:
-  configs = await db.get_configs(user_id)
-  #temp.CONFIGS[user_id] = configs 
-  return configs
+    configs = await db.get_configs(user_id)
+    return configs
                           
 async def update_configs(user_id, key, value):
-  current = await db.get_configs(user_id)
-  if key in ['caption', 'duplicate', 'db_uri', 'forward_tag', 'protect', 'file_size', 'size_limit', 'extension', 'keywords', 'button']:
-     current[key] = value
-  else: 
-     current['filters'][key] = value
- # temp.CONFIGS[user_id] = value
-  await db.update_configs(user_id, current)
+    current = await db.get_configs(user_id)
+    if key in ['caption', 'duplicate', 'db_uri', 'forward_tag', 'protect', 'file_size', 'size_limit', 'extension', 'keywords', 'button']:
+        current[key] = value
+    else:
+        current['filters'][key] = value
+    await db.update_configs(user_id, current)
     
 def parse_buttons(text, markup=True):
     buttons = []
@@ -190,5 +188,5 @@ def parse_buttons(text, markup=True):
                     text=match.group(2),
                     url=match.group(3).replace(" ", ""))])
     if markup and buttons:
-       buttons = InlineKeyboardMarkup(buttons)
+        buttons = InlineKeyboardMarkup(buttons)
     return buttons if buttons else None
