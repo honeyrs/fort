@@ -1,4 +1,5 @@
 import asyncio 
+import logging
 from database import db
 from translation import Translation
 from pyrogram import Client, filters
@@ -6,6 +7,8 @@ from .test import get_configs, update_configs, CLIENT, parse_buttons
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 CLIENT = CLIENT()
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 @Client.on_message(filters.command('settings'))
 async def settings(client, message):
@@ -18,10 +21,12 @@ async def settings(client, message):
 @Client.on_callback_query(filters.regex(r'^settings'))
 async def settings_query(bot, query):
     user_id = query.from_user.id
+    logger.info(f"Callback received: {query.data}")
     i, type = query.data.split("#")
     buttons = [[InlineKeyboardButton('↩ Back', callback_data="settings#main")]]
 
     if type == "main":
+        logger.info("Showing main settings menu")
         await query.message.edit_text(
             "<b>change your settings as your wish</b>",
             reply_markup=main_buttons())
@@ -122,41 +127,6 @@ async def settings_query(bot, query):
                 reply_markup=InlineKeyboardMarkup(buttons))
         except asyncio.exceptions.TimeoutError:
             await text.edit_text('Process has been automatically cancelled', reply_markup=InlineKeyboardMarkup(buttons))
-    
-    elif type == "editbot": 
-        bot = await db.get_bot(user_id)
-        TEXT = Translation.BOT_DETAILS if bot['is_bot'] else Translation.USER_DETAILS
-        buttons = [[InlineKeyboardButton('❌ Remove ❌', callback_data="settings#removebot")
-                   ],
-                   [InlineKeyboardButton('↩ Back', callback_data="settings#bots")]]
-        await query.message.edit_text(
-            TEXT.format(bot['name'], bot['id'], bot['username']),
-            reply_markup=InlineKeyboardMarkup(buttons))
-                                             
-    elif type == "removebot":
-        await db.remove_bot(user_id)
-        await query.message.edit_text(
-            "<b>successfully updated</b>",
-            reply_markup=InlineKeyboardMarkup(buttons))
-                                             
-    elif type.startswith("editchannels"): 
-        chat_id = type.split('_')[1]
-        channel = await db.get_channel_details(user_id, int(chat_id))
-        if not channel:
-            await query.message.edit_text("Channel not found", reply_markup=InlineKeyboardMarkup(buttons))
-            return
-        buttons = [[InlineKeyboardButton('❌ Remove ❌', callback_data=f"settings#removechannel_{chat_id}")],
-                  [InlineKeyboardButton('↩ Back', callback_data="settings#channels")]]
-        await query.message.edit_text(
-            f"<b>Channel Details</b>\n\nTitle: {channel['title']}\nChat ID: {chat_id}\nUsername: {channel['username']}",
-            reply_markup=InlineKeyboardMarkup(buttons))
-    
-    elif type.startswith("removechannel"):
-        chat_id = type.split('_')[1]
-        await db.remove_channel(user_id, int(chat_id))
-        await query.message.edit_text(
-            "<b>Successfully removed channel</b>",
-            reply_markup=InlineKeyboardMarkup(buttons))
     
     elif type == "caption":
         buttons = []
@@ -306,27 +276,33 @@ async def settings_query(bot, query):
             reply_markup=InlineKeyboardMarkup(buttons))
       
     elif type == "filters":
-        await query.message.edit_text(
-            "<b><u>💠 CUSTOM FILTERS 💠</b></u>\n\n**configure the type of messages which you want forward**",
-            reply_markup=await filters_buttons(user_id))
+        logger.info(f"Opening filters menu for user {user_id}")
+        try:
+            markup = await filters_buttons(user_id)
+            logger.info(f"Filters markup generated: {markup}")
+            await query.message.edit_text(
+                "<b><u>💠 CUSTOM FILTERS 💠</b></u>\n\n**configure the type of messages which you want forward**",
+                reply_markup=markup
+            )
+        except Exception as e:
+            logger.error(f"Error in filters menu: {e}")
+            await query.message.edit_text(f"Error opening filters: {e}")
   
     elif type == "nextfilters":
         await query.edit_message_reply_markup( 
             reply_markup=await next_filters_buttons(user_id))
    
     elif type.startswith("updatefilter"):
-        _, key, value = type.split('-')  # Fixed split to match callback format
+        logger.info(f"Updating filter: {type}")
+        _, key, value = type.split('-')
         if key in ['poll', 'text', 'audio', 'voice', 'video', 'photo', 'document', 'animation', 'sticker']:
-            # Toggle sub-filters under 'filters'
             current_filters = (await get_configs(user_id))['filters']
             current_filters[key] = not current_filters[key]
             await db.update_configs(user_id, {'filters': current_filters})
         else:
-            # Toggle top-level filters
             new_value = False if value == "True" else True
             await update_configs(user_id, key, new_value)
         
-        # Update the Filters menu based on which section we're in
         if key in ['poll', 'protect']:
             await query.edit_message_reply_markup(
                 reply_markup=await next_filters_buttons(user_id))
@@ -518,6 +494,7 @@ def size_button(size):
     return InlineKeyboardMarkup(buttons)
        
 async def filters_buttons(user_id):
+    logger.info(f"Generating filters buttons for user {user_id}")
     filter = await get_configs(user_id)
     filters = filter['filters']
     buttons = [[
