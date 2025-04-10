@@ -24,15 +24,14 @@ async def pub_(bot, message):
     temp.CANCEL[user] = False
     frwd_id = message.data.split("_")[2]
     if temp.lock.get(user) and str(temp.lock.get(user)) == "True":
-        return await message.answer("Please wait until previous task completes", show_alert=True)
+        return await message.answer("Please wait until previous task completes for this user", show_alert=True)
     sts = STS(frwd_id)
     if not sts.verify():
         await message.answer("You are clicking on an old button", show_alert=True)
         return await message.message.delete()
     
     i = sts.get(full=True)
-    if i.TO in temp.IS_FRWD_CHAT:
-        return await message.answer("A task is already progressing in the target chat. Please wait until it completes", show_alert=True)
+    # Removed temp.IS_FRWD_CHAT check to allow multiple tasks in the same target chat
     
     m = await msg_edit(message.message, "<code>Verifying your data, please wait.</code>")
     _bot, caption, forward_tag, data, protect, button = await sts.get_data(user)
@@ -64,7 +63,7 @@ async def pub_(bot, message):
     sts.add(time=True)
     sleep = 1 if _bot['is_bot'] else 10
     await msg_edit(m, "<code>Processing...</code>") 
-    temp.IS_FRWD_CHAT.append(i.TO)
+    # Removed temp.IS_FRWD_CHAT.append(i.TO) to allow multiple tasks
     temp.lock[user] = locked = True
     
     if locked:
@@ -110,10 +109,10 @@ async def pub_(bot, message):
                     await asyncio.sleep(sleep) 
         except Exception as e:
             await msg_edit(m, f'<b>ERROR:</b>\n<code>{e}</code>', wait=True)
-            temp.IS_FRWD_CHAT.remove(sts.get('TO'))
+            # Removed temp.IS_FRWD_CHAT.remove(sts.get('TO'))
             return await stop(client, user)
         
-        temp.IS_FRWD_CHAT.remove(sts.get('TO'))
+        # Removed temp.IS_FRWD_CHAT.remove(sts.get('TO'))
         await send(client, user, f"<b>🎉 Forwarding completed with {_bot['name']} 🥀 <a href=https://t.me/H0NEYSINGH>SUPPORT</a>🥀</b>")
         await edit(m, 'Completed', "completed", sts) 
         await stop(client, user)
@@ -203,7 +202,7 @@ async def edit(msg, title, status, sts):
    if status in ["cancelled", "completed"]:
       button.append(
          [InlineKeyboardButton('Support', url='https://t.me/H0NEYSINGH'),
-         InlineKeyboardButton('Updates', url='https://t.me/H0NEYSINGH')]
+         InlineKeyboardButton('Updates′, url='https://t.me/H0NEYSINGH')]
          )
    else:
       button.append([InlineKeyboardButton('• ᴄᴀɴᴄᴇʟ', 'terminate_frwd')])
@@ -211,7 +210,7 @@ async def edit(msg, title, status, sts):
    
 async def is_cancelled(client, user, msg, sts):
    if temp.CANCEL.get(user)==True:
-      temp.IS_FRWD_CHAT.remove(sts.TO)
+      # Removed temp.IS_FRWD_CHAT.remove(sts.TO)
       await edit(msg, "Cancelled", "completed", sts)
       await send(client, user, "<b>❌ Forwarding Process Cancelled</b>")
       await stop(client, user)
