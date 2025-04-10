@@ -94,7 +94,7 @@ class Database:
             'protect': None,
             'button': None,
             'db_uri': None,
-            'skip_bot_messages': False,  # New filter: False means forward bot messages by default
+            'skip_bot_messages': False,
             'filters': {
                'poll': True,
                'text': True,
