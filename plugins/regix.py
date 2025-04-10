@@ -66,6 +66,10 @@ async def pub_(bot, message):
     
     user_config = await db.get_configs(user)
     skip_bot_messages = user_config.get('skip_bot_messages', False)
+    filters_dict = user_config.get('filters', {
+        'poll': True, 'text': True, 'audio': True, 'voice': True,
+        'video': True, 'photo': True, 'document': True, 'animation': True, 'sticker': True
+    })
     
     try:
         MSG = []
@@ -84,7 +88,37 @@ async def pub_(bot, message):
             pling += 1
             sts.add('fetched')
             
+            # Skip bot messages if enabled
             if skip_bot_messages and message.from_user and message.from_user.is_bot:
+                sts.add('filtered')
+                continue
+            
+            # Apply message type filters
+            if message.text and not filters_dict.get('text', True):
+                sts.add('filtered')
+                continue
+            if message.photo and not filters_dict.get('photo', True):
+                sts.add('filtered')
+                continue
+            if message.video and not filters_dict.get('video', True):
+                sts.add('filtered')
+                continue
+            if message.document and not filters_dict.get('document', True):
+                sts.add('filtered')
+                continue
+            if message.audio and not filters_dict.get('audio', True):
+                sts.add('filtered')
+                continue
+            if message.voice and not filters_dict.get('voice', True):
+                sts.add('filtered')
+                continue
+            if message.animation and not filters_dict.get('animation', True):
+                sts.add('filtered')
+                continue
+            if message.sticker and not filters_dict.get('sticker', True):
+                sts.add('filtered')
+                continue
+            if message.poll and not filters_dict.get('poll', True):
                 sts.add('filtered')
                 continue
             
