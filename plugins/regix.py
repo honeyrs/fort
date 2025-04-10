@@ -21,7 +21,6 @@ TEXT = Translation.TEXT
 @Client.on_callback_query(filters.regex(r'^start_public'))
 async def pub_(bot, message):
     user = message.from_user.id
-    temp.CANCEL[user] = False  # Keep user-level cancel option
     frwd_id = message.data.split("_")[2]
     if temp.lock.get(frwd_id) and str(temp.lock.get(frwd_id)) == "True":
         return await message.answer(f"Task {frwd_id} is already in progress. Please wait or cancel it.", show_alert=True)
@@ -62,56 +61,56 @@ async def pub_(bot, message):
     sts.add(time=True)
     sleep = 1 if _bot['is_bot'] else 10
     await msg_edit(m, "<code>Processing...</code>") 
-    temp.lock[frwd_id] = locked = True  # Lock per task instead of per user
+    temp.lock[frwd_id] = True  # Lock per task
+    temp.CANCEL[frwd_id] = False  # Initialize task-specific cancel flag
     
-    if locked:
-        try:
-            MSG = []
-            pling = 0
-            await edit(m, 'Progressing', 10, sts)
-            print(f"Starting Forwarding Process... Task: {frwd_id} From: {sts.get('FROM')} To: {sts.get('TO')} Total: {sts.get('limit')} Stats: {sts.get('skip')})")
-            async for message in client.iter_messages(
-                chat_id=sts.get('FROM'), 
-                limit=int(sts.get('limit')), 
-                offset=int(sts.get('skip')) if sts.get('skip') else 0
-            ):
-                if await is_cancelled(client, user, m, sts, frwd_id):
-                    return
-                if pling % 20 == 0: 
-                    await edit(m, 'Progressing', 10, sts)
-                pling += 1
-                sts.add('fetched')
-                if message == "DUPLICATE":
-                    sts.add('duplicate')
-                    continue 
-                elif message == "FILTERED":
-                    sts.add('filtered')
-                    continue 
-                if message.empty or message.service:
-                    sts.add('deleted')
-                    continue
-                if forward_tag:
-                    MSG.append(message.id)
-                    notcompleted = len(MSG)
-                    completed = sts.get('total') - sts.get('fetched')
-                    if (notcompleted >= 100 or completed <= 100): 
-                        await forward(client, MSG, m, sts, protect)
-                        sts.add('total_files', notcompleted)
-                        await asyncio.sleep(10)
-                        MSG = []
-                else:
-                    new_caption = custom_caption(message, caption)
-                    details = {"msg_id": message.id, "media": media(message), "caption": new_caption, 'button': button, "protect": protect}
-                    await copy(client, details, m, sts)
-                    sts.add('total_files')
-                    await asyncio.sleep(sleep) 
-        except Exception as e:
-            await msg_edit(m, f'<b>ERROR (Task {frwd_id}):</b>\n<code>{e}</code>', wait=True)
-            return await stop(client, user, frwd_id)
-        
-        await send(client, user, f"<b>🎉 Forwarding completed with {_bot['name']} (Task {frwd_id}) 🥀 <a href=https://t.me/H0NEYSINGH>SUPPORT</a>🥀</b>")
-        await edit(m, 'Completed', "completed", sts) 
-        await stop(client, user, frwd_id)
+    try:
+        MSG = []
+        pling = 0
+        await edit(m, 'Progressing', 10, sts)
+        print(f"Starting Forwarding Process... Task: {frwd_id} From: {sts.get('FROM')} To: {sts.get('TO')} Total: {sts.get('limit')} Stats: {sts.get('skip')})")
+        async for message in client.iter_messages(
+            chat_id=sts.get('FROM'), 
+            limit=int(sts.get('limit')), 
+            offset=int(sts.get('skip')) if sts.get('skip') else 0
+        ):
+            if await is_cancelled(client, user, m, sts, frwd_id):
+                return
+            if pling % 20 == 0: 
+                await edit(m, 'Progressing', 10, sts)
+            pling += 1
+            sts.add('fetched')
+            if message == "DUPLICATE":
+                sts.add('duplicate')
+                continue 
+            elif message == "FILTERED":
+                sts.add('filtered')
+                continue 
+            if message.empty or message.service:
+                sts.add('deleted')
+                continue
+            if forward_tag:
+                MSG.append(message.id)
+                notcompleted = len(MSG)
+                completed = sts.get('total') - sts.get('fetched')
+                if (notcompleted >= 100 or completed <= 100): 
+                    await forward(client, MSG, m, sts, protect)
+                    sts.add('total_files', notcompleted)
+                    await asyncio.sleep(10)
+                    MSG = []
+            else:
+                new_caption = custom_caption(message, caption)
+                details = {"msg_id": message.id, "media": media(message), "caption": new_caption, 'button': button, "protect": protect}
+                await copy(client, details, m, sts)
+                sts.add('total_files')
+                await asyncio.sleep(sleep) 
+    except Exception as e:
+        await msg_edit(m, f'<b>ERROR (Task {frwd_id}):</b>\n<code>{e}</code>', wait=True)
+        return await stop(client, user, frwd_id)
+    
+    await send(client, user, f"<b>🎉 Forwarding completed with {_bot['name']} (Task {frwd_id}) 🥀 <a href=https://t.me/H0NEYSINGH>SUPPORT</a>🥀</b>")
+    await edit(m, 'Completed', "completed", sts) 
+    await stop(client, user, frwd_id)
            
 async def copy(bot, msg, m, sts):
    try:                                  
@@ -201,11 +200,11 @@ async def edit(msg, title, status, sts):
           InlineKeyboardButton('Updates', url='https://t.me/H0NEYSINGH')]
       )
    else:
-      button.append([InlineKeyboardButton('• ᴄᴀɴᴄᴇʟ', 'terminate_frwd')])
+      button.append([InlineKeyboardButton('• ᴄᴀɴᴄᴇʟ', f'terminate_frwd#{i.id}')])
    await msg_edit(msg, text, InlineKeyboardMarkup(button))
    
 async def is_cancelled(client, user, msg, sts, frwd_id):
-   if temp.CANCEL.get(user) == True:
+   if temp.CANCEL.get(frwd_id) == True:
       await edit(msg, "Cancelled", "completed", sts)
       await send(client, user, f"<b>❌ Forwarding Process Cancelled (Task {frwd_id})</b>")
       await stop(client, user, frwd_id)
@@ -220,6 +219,7 @@ async def stop(client, user, frwd_id):
    await db.rmve_frwd(user)
    temp.forwardings -= 1
    temp.lock[frwd_id] = False  # Unlock the specific task
+   temp.CANCEL[frwd_id] = False  # Reset task-specific cancel flag
     
 async def send(bot, user, text):
    try:
@@ -273,12 +273,16 @@ def TimeFormatter(milliseconds: int) -> str:
 def retry_btn(id):
     return InlineKeyboardMarkup([[InlineKeyboardButton('♻️ RETRY ♻️', f"start_public_{id}")]])
 
-@Client.on_callback_query(filters.regex(r'^terminate_frwd$'))
+@Client.on_callback_query(filters.regex(r'^terminate_frwd'))
 async def terminate_frwding(bot, m):
     user_id = m.from_user.id 
-    # Since we can't determine frwd_id here, cancel all tasks for the user
-    temp.CANCEL[user_id] = True 
-    await m.answer("All forwarding tasks for this user are being cancelled!", show_alert=True)
+    frwd_id = m.data.split("#")[1] if "#" in m.data else None
+    if frwd_id and temp.lock.get(frwd_id):  # Check if the task exists and is active
+        temp.lock[frwd_id] = False
+        temp.CANCEL[frwd_id] = True
+        await m.answer(f"Task {frwd_id} cancelled!", show_alert=True)
+    else:
+        await m.answer("This task is not active or already completed.", show_alert=True)
           
 @Client.on_callback_query(filters.regex(r'^fwrdstatus'))
 async def status_msg(bot, msg):
