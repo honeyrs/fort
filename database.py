@@ -108,9 +108,16 @@ class Database:
             }
         }
         user = await self.col.find_one({'id': int(id)})
-        if user:
-            return user.get('configs', default)
-        return default 
+        if not user:
+            return default
+        user_configs = user.get('configs', {})
+        # Merge default with user configs to ensure all keys exist
+        merged_configs = default.copy()
+        merged_configs.update(user_configs)
+        # Ensure 'filters' sub-dictionary is fully populated
+        if 'filters' in merged_configs:
+            merged_configs['filters'] = {**default['filters'], **merged_configs['filters']}
+        return merged_configs
        
     async def add_bot(self, datas):
         await self.bot.update_one(
