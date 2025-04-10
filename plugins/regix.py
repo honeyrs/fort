@@ -194,7 +194,7 @@ async def edit(msg, title, status, sts):
    progress = "◉{0}{1}".format(
        ''.join(["◉" for i in range(math.floor(int(percentage) / 10))]),
        ''.join(["◎" for i in range(10 - math.floor(int(percentage) / 10))]))
-   button =  [[InlineKeyboardButton(title, f'fwrdstatus#{status}#{estimated_total_time}#{percentage}#{i.id}')]]
+   button = [[InlineKeyboardButton(title, f'fwrdstatus#{status}#{estimated_total_time}#{percentage}#{i.id}')]]
    estimated_total_time = TimeFormatter(milliseconds=estimated_total_time)
    estimated_total_time = estimated_total_time if estimated_total_time != '' else '0 s'
 
@@ -202,12 +202,12 @@ async def edit(msg, title, status, sts):
    if status in ["cancelled", "completed"]:
       button.append(
          [InlineKeyboardButton('Support', url='https://t.me/H0NEYSINGH'),
-         InlineKeyboardButton('Updates′, url='https://t.me/H0NEYSINGH')]
-         )
+          InlineKeyboardButton('Updates', url='https://t.me/H0NEYSINGH')]
+      )
    else:
       button.append([InlineKeyboardButton('• ᴄᴀɴᴄᴇʟ', 'terminate_frwd')])
    await msg_edit(msg, text, InlineKeyboardMarkup(button))
-   
+    
 async def is_cancelled(client, user, msg, sts):
    if temp.CANCEL.get(user)==True:
       # Removed temp.IS_FRWD_CHAT.remove(sts.TO)
