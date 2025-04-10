@@ -21,17 +21,16 @@ TEXT = Translation.TEXT
 @Client.on_callback_query(filters.regex(r'^start_public'))
 async def pub_(bot, message):
     user = message.from_user.id
-    temp.CANCEL[user] = False
+    temp.CANCEL[user] = False  # Keep user-level cancel option
     frwd_id = message.data.split("_")[2]
-    if temp.lock.get(user) and str(temp.lock.get(user)) == "True":
-        return await message.answer("Please wait until previous task completes for this user", show_alert=True)
+    if temp.lock.get(frwd_id) and str(temp.lock.get(frwd_id)) == "True":
+        return await message.answer(f"Task {frwd_id} is already in progress. Please wait or cancel it.", show_alert=True)
     sts = STS(frwd_id)
     if not sts.verify():
         await message.answer("You are clicking on an old button", show_alert=True)
         return await message.message.delete()
     
     i = sts.get(full=True)
-    # Removed temp.IS_FRWD_CHAT check to allow multiple tasks in the same target chat
     
     m = await msg_edit(message.message, "<code>Verifying your data, please wait.</code>")
     _bot, caption, forward_tag, data, protect, button = await sts.get_data(user)
@@ -48,36 +47,35 @@ async def pub_(bot, message):
         await client.get_messages(sts.get("FROM"), sts.get("limit"))
     except:
         await msg_edit(m, f"**Source chat may be private. Use a userbot (user must be a member) or make your [Bot](t.me/{_bot['username']}) an admin there**", retry_btn(frwd_id), True)
-        return await stop(client, user)
+        return await stop(client, user, frwd_id)
     
     try:
         k = await client.send_message(i.TO, "Testing")
         await k.delete()
     except:
         await msg_edit(m, f"**Please make your [Bot/UserBot](t.me/{_bot['username']}) an admin in the target channel with full permissions**", retry_btn(frwd_id), True)
-        return await stop(client, user)
+        return await stop(client, user, frwd_id)
     
     temp.forwardings += 1
     await db.add_frwd(user)
-    await send(client, user, f"<b>Forwarding started with {_bot['name']} <a href=https://t.me/H0NEYSINGH>@H_oneysingh</a></b>")
+    await send(client, user, f"<b>Forwarding started with {_bot['name']} (Task {frwd_id}) <a href=https://t.me/H0NEYSINGH>@H_oneysingh</a></b>")
     sts.add(time=True)
     sleep = 1 if _bot['is_bot'] else 10
     await msg_edit(m, "<code>Processing...</code>") 
-    # Removed temp.IS_FRWD_CHAT.append(i.TO) to allow multiple tasks
-    temp.lock[user] = locked = True
+    temp.lock[frwd_id] = locked = True  # Lock per task instead of per user
     
     if locked:
         try:
             MSG = []
             pling = 0
             await edit(m, 'Progressing', 10, sts)
-            print(f"Starting Forwarding Process... From: {sts.get('FROM')} To: {sts.get('TO')} Total: {sts.get('limit')} Stats: {sts.get('skip')})")
+            print(f"Starting Forwarding Process... Task: {frwd_id} From: {sts.get('FROM')} To: {sts.get('TO')} Total: {sts.get('limit')} Stats: {sts.get('skip')})")
             async for message in client.iter_messages(
                 chat_id=sts.get('FROM'), 
                 limit=int(sts.get('limit')), 
                 offset=int(sts.get('skip')) if sts.get('skip') else 0
             ):
-                if await is_cancelled(client, user, m, sts):
+                if await is_cancelled(client, user, m, sts, frwd_id):
                     return
                 if pling % 20 == 0: 
                     await edit(m, 'Progressing', 10, sts)
@@ -108,14 +106,12 @@ async def pub_(bot, message):
                     sts.add('total_files')
                     await asyncio.sleep(sleep) 
         except Exception as e:
-            await msg_edit(m, f'<b>ERROR:</b>\n<code>{e}</code>', wait=True)
-            # Removed temp.IS_FRWD_CHAT.remove(sts.get('TO'))
-            return await stop(client, user)
+            await msg_edit(m, f'<b>ERROR (Task {frwd_id}):</b>\n<code>{e}</code>', wait=True)
+            return await stop(client, user, frwd_id)
         
-        # Removed temp.IS_FRWD_CHAT.remove(sts.get('TO'))
-        await send(client, user, f"<b>🎉 Forwarding completed with {_bot['name']} 🥀 <a href=https://t.me/H0NEYSINGH>SUPPORT</a>🥀</b>")
+        await send(client, user, f"<b>🎉 Forwarding completed with {_bot['name']} (Task {frwd_id}) 🥀 <a href=https://t.me/H0NEYSINGH>SUPPORT</a>🥀</b>")
         await edit(m, 'Completed', "completed", sts) 
-        await stop(client, user)
+        await stop(client, user, frwd_id)
            
 async def copy(bot, msg, m, sts):
    try:                                  
@@ -157,15 +153,15 @@ async def forward(bot, msg, m, sts, protect):
      await forward(bot, msg, m, sts, protect)
 
 PROGRESS = """
-📈 Percetage: {0} %
+📈 Percentage: {0} %
 
-♻️ Feched: {1}
+♻️ Fetched: {1}
 
-♻️ Fowarded: {2}
+♻️ Forwarded: {2}
 
 ♻️ Remaining: {3}
 
-♻️ Stataus: {4}
+♻️ Status: {4}
 
 ⏳️ ETA: {5}
 """
@@ -207,24 +203,23 @@ async def edit(msg, title, status, sts):
    else:
       button.append([InlineKeyboardButton('• ᴄᴀɴᴄᴇʟ', 'terminate_frwd')])
    await msg_edit(msg, text, InlineKeyboardMarkup(button))
-    
-async def is_cancelled(client, user, msg, sts):
-   if temp.CANCEL.get(user)==True:
-      # Removed temp.IS_FRWD_CHAT.remove(sts.TO)
+   
+async def is_cancelled(client, user, msg, sts, frwd_id):
+   if temp.CANCEL.get(user) == True:
       await edit(msg, "Cancelled", "completed", sts)
-      await send(client, user, "<b>❌ Forwarding Process Cancelled</b>")
-      await stop(client, user)
+      await send(client, user, f"<b>❌ Forwarding Process Cancelled (Task {frwd_id})</b>")
+      await stop(client, user, frwd_id)
       return True 
    return False 
 
-async def stop(client, user):
+async def stop(client, user, frwd_id):
    try:
      await client.stop()
    except:
      pass 
    await db.rmve_frwd(user)
    temp.forwardings -= 1
-   temp.lock[user] = False 
+   temp.lock[frwd_id] = False  # Unlock the specific task
     
 async def send(bot, user, text):
    try:
@@ -281,20 +276,20 @@ def retry_btn(id):
 @Client.on_callback_query(filters.regex(r'^terminate_frwd$'))
 async def terminate_frwding(bot, m):
     user_id = m.from_user.id 
-    temp.lock[user_id] = False
+    # Since we can't determine frwd_id here, cancel all tasks for the user
     temp.CANCEL[user_id] = True 
-    await m.answer("Forwarding cancelled !", show_alert=True)
+    await m.answer("All forwarding tasks for this user are being cancelled!", show_alert=True)
           
 @Client.on_callback_query(filters.regex(r'^fwrdstatus'))
 async def status_msg(bot, msg):
     _, status, est_time, percentage, frwd_id = msg.data.split("#")
     sts = STS(frwd_id)
     if not sts.verify():
-       fetched, forwarded, remaining = 0
+       fetched, forwarded, remaining = 0, 0, 0
     else:
        fetched, forwarded = sts.get('fetched'), sts.get('total_files')
        remaining = fetched - forwarded 
-    est_time = TimeFormatter(milliseconds=est_time)
+    est_time = TimeFormatter(milliseconds=int(est_time))
     est_time = est_time if (est_time != '' or status not in ['completed', 'cancelled']) else '0 s'
     return await msg.answer(PROGRESS.format(percentage, fetched, forwarded, remaining, status, est_time), show_alert=True)
                   
