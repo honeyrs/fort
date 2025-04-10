@@ -64,6 +64,10 @@ async def pub_(bot, message):
     temp.lock[frwd_id] = True  # Lock per task
     temp.CANCEL[frwd_id] = False  # Initialize task-specific cancel flag
     
+    # Load user config to check skip_bot_messages
+    user_config = await db.get_configs(user)
+    skip_bot_messages = user_config.get('skip_bot_messages', False)
+    
     try:
         MSG = []
         pling = 0
@@ -80,6 +84,12 @@ async def pub_(bot, message):
                 await edit(m, 'Progressing', 10, sts)
             pling += 1
             sts.add('fetched')
+            
+            # Skip messages from bots if skip_bot_messages is True
+            if skip_bot_messages and message.from_user and message.from_user.is_bot:
+                sts.add('filtered')  # Count as filtered
+                continue
+            
             if message == "DUPLICATE":
                 sts.add('duplicate')
                 continue 
