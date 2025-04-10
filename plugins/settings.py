@@ -518,6 +518,11 @@ async def filters_buttons(user_id):
         InlineKeyboardButton('✅' if filter['forward_tag'] else '❌',
                      callback_data=f'settings#updatefilter-forward_tag-{filter["forward_tag"]}')
         ],[
+        InlineKeyboardButton('🤖 Bot Messages',  # New filter button
+                     callback_data=f'settings_#updatefilter-skip_bot_messages-{filter["skip_bot_messages"]}'),
+        InlineKeyboardButton('✅' if not filter['skip_bot_messages'] else '❌',  # ✅ means forward, ❌ means skip
+                     callback_data=f'settings#updatefilter-skip_bot_messages-{filter["skip_bot_messages"]}')
+        ],[
         InlineKeyboardButton('🖍️ Texts',
                      callback_data=f'settings_#updatefilter-text-{filters["text"]}'),
         InlineKeyboardButton('✅' if filters['text'] else '❌',
@@ -594,4 +599,4 @@ async def next_filters_buttons(user_id):
         InlineKeyboardButton('⫷ back', 
                      callback_data="settings#main")
         ]]
-    return InlineKeyboardMarkup(buttons) 
+    return InlineKeyboardMarkup(buttons)
