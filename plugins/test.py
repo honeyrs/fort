@@ -12,7 +12,7 @@ from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from pyrogram.errors.exceptions.bad_request_400 import AccessTokenExpired, AccessTokenInvalid
 from pyrogram.errors import FloodWait
 from translation import Translation
-import types  # Added for binding the method
+import types
 
 from typing import Union, Optional, AsyncGenerator
 
@@ -24,7 +24,6 @@ BOT_TOKEN_TEXT = "<b>1) Create a bot using @BotFather\n2) Then you will get a me
 SESSION_STRING_SIZE = 351
 
 async def start_clone_bot(FwdBot, data=None):
-    """Start a Pyrogram Client and attach custom iter_messages method."""
     try:
         await FwdBot.start()
         me = await FwdBot.get_me()
@@ -38,7 +37,6 @@ async def start_clone_bot(FwdBot, data=None):
             search: str = None,
             filter: "types.TypeMessagesFilter" = None,
         ) -> Optional[AsyncGenerator["types.Message", None]]:
-            """Iterate through a chat sequentially."""
             current = offset
             while True:
                 new_diff = min(200, limit - current)
@@ -49,7 +47,6 @@ async def start_clone_bot(FwdBot, data=None):
                     yield message
                     current += 1
         
-        # Bind the iter_messages function to the FwdBot instance
         FwdBot.iter_messages = types.MethodType(iter_messages, FwdBot)
         return FwdBot
     except Exception as e:
@@ -129,15 +126,13 @@ class CLIENT:
 @Client.on_message(filters.private & filters.command('reset'))
 async def reset_settings(bot, m):
     user_id = m.from_user.id
-    # Get the default config from database.py's get_configs
-    default = await db.get_configs(user_id)  # This will return default if user not found
+    default = await db.get_configs(user_id)
     if not await db.is_user_exist(user_id):
         await db.add_user(user_id, m.from_user.first_name)
         await m.reply("You didn't have any settings to reset. Default settings applied ✔️")
         return
     
     try:
-        # Reset only user-specific settings, not bots or channels
         await db.update_configs(user_id, default)
         await m.reply("Successfully reset your settings to default ✔️")
     except Exception as e:
@@ -174,7 +169,7 @@ async def get_configs(user_id):
                           
 async def update_configs(user_id, key, value):
     current = await db.get_configs(user_id)
-    if key in ['caption', 'duplicate', 'db_uri', 'forward_tag', 'protect', 'file_size', 'size_limit', 'extension', 'keywords', 'button']:
+    if key in ['caption', 'duplicate', 'db_uri', 'forward_tag', 'protect', 'file_size', 'size_limit', 'extension', 'keywords', 'button', 'skip_bot_messages']:
         current[key] = value
     else:
         current['filters'][key] = value
