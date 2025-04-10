@@ -61,10 +61,9 @@ async def pub_(bot, message):
     sts.add(time=True)
     sleep = 1 if _bot['is_bot'] else 10
     await msg_edit(m, "<code>Processing...</code>") 
-    temp.lock[frwd_id] = True  # Lock per task
-    temp.CANCEL[frwd_id] = False  # Initialize task-specific cancel flag
+    temp.lock[frwd_id] = True
+    temp.CANCEL[frwd_id] = False
     
-    # Load user config to check skip_bot_messages
     user_config = await db.get_configs(user)
     skip_bot_messages = user_config.get('skip_bot_messages', False)
     
@@ -85,9 +84,8 @@ async def pub_(bot, message):
             pling += 1
             sts.add('fetched')
             
-            # Skip messages from bots if skip_bot_messages is True
             if skip_bot_messages and message.from_user and message.from_user.is_bot:
-                sts.add('filtered')  # Count as filtered
+                sts.add('filtered')
                 continue
             
             if message == "DUPLICATE":
@@ -228,8 +226,8 @@ async def stop(client, user, frwd_id):
      pass 
    await db.rmve_frwd(user)
    temp.forwardings -= 1
-   temp.lock[frwd_id] = False  # Unlock the specific task
-   temp.CANCEL[frwd_id] = False  # Reset task-specific cancel flag
+   temp.lock[frwd_id] = False
+   temp.CANCEL[frwd_id] = False
     
 async def send(bot, user, text):
    try:
@@ -287,7 +285,7 @@ def retry_btn(id):
 async def terminate_frwding(bot, m):
     user_id = m.from_user.id 
     frwd_id = m.data.split("#")[1] if "#" in m.data else None
-    if frwd_id and temp.lock.get(frwd_id):  # Check if the task exists and is active
+    if frwd_id and temp.lock.get(frwd_id):
         temp.lock[frwd_id] = False
         temp.CANCEL[frwd_id] = True
         await m.answer(f"Task {frwd_id} cancelled!", show_alert=True)
