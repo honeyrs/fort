@@ -127,11 +127,22 @@ class CLIENT:
         return True
         
 @Client.on_message(filters.private & filters.command('reset'))
-async def forward_tag(bot, m):
-    default = await db.get_configs("01")
-    temp.CONFIGS[m.from_user.id] = default
-    await db.update_configs(m.from_user.id, default)
-    await m.reply("successfully settings reseted ✔️")
+async def reset_settings(bot, m):
+    user_id = m.from_user.id
+    # Get the default config from database.py's get_configs
+    default = await db.get_configs(user_id)  # This will return default if user not found
+    if not await db.is_user_exist(user_id):
+        await db.add_user(user_id, m.from_user.first_name)
+        await m.reply("You didn't have any settings to reset. Default settings applied ✔️")
+        return
+    
+    try:
+        # Reset only user-specific settings, not bots or channels
+        await db.update_configs(user_id, default)
+        await m.reply("Successfully reset your settings to default ✔️")
+    except Exception as e:
+        logger.error(f"Error resetting settings for user {user_id}: {e}")
+        await m.reply(f"Failed to reset settings due to an error: {e}")
 
 @Client.on_message(filters.command('resetall') & filters.user(Config.BOT_OWNER_ID))
 async def resetall(bot, message):
@@ -154,7 +165,7 @@ async def resetall(bot, message):
             ERRORS.append(e)
             failed += 1
     if ERRORS:
-        await message.reply(ERRORS[:100])
+        await message.reply(f"Errors encountered: {ERRORS[:100]}")
     await sts.edit("completed\n" + TEXT.format(total, success, failed, already))
   
 async def get_configs(user_id):
