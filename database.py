@@ -94,6 +94,7 @@ class Database:
             'protect': None,
             'button': None,
             'db_uri': None,
+            'skip_bot_messages': False,  # New filter: False means forward bot messages by default
             'filters': {
                'poll': True,
                'text': True,
@@ -112,7 +113,6 @@ class Database:
         return default 
        
     async def add_bot(self, datas):
-        # Add a bot to the user's bot list
         await self.bot.update_one(
             {'user_id': datas['user_id']},
             {'$push': {'bots': datas}},
@@ -120,14 +120,12 @@ class Database:
         )
     
     async def remove_bot(self, user_id, bot_id):
-        # Remove a specific bot by bot_id
         await self.bot.update_one(
             {'user_id': int(user_id)},
             {'$pull': {'bots': {'id': int(bot_id)}}}
         )
       
     async def get_bots(self, user_id):
-        # Get all bots for a user
         bot_doc = await self.bot.find_one({'user_id': int(user_id)})
         return bot_doc['bots'] if bot_doc and 'bots' in bot_doc else []
                                           
